@@ -52,7 +52,7 @@ public class Veterinarian extends User {
     @Override
     public boolean canBookAppointments() {
         return false;
-  // ----- Setters: change the private fields (used when updating a vet) -----      
+}        
     public void setSpecialization(String specialization) {
     this.specialization = specialization;
 }
