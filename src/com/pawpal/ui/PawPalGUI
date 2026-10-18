@@ -1,0 +1,698 @@
+package com.pawpal.ui;
+
+import com.pawpal.dao.*;
+import com.pawpal.model.*;
+
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+
+/**
+ * PawPalGUI handles the entire Graphical User Interface (GUI) for the PawPal system.
+ * It uses Java Swing for the frontend and connects to the DAO layer for database operations.
+ * 
+ * TEAM CONTRIBUTIONS:
+ * - Member 1: LoginFrame, ManageUsersPanel, Vet Registration logic.
+ * - Member 2: PetPanel, Pet Owner Registration logic.
+ * - Member 3: ViewVetsPanel, ManageVetsPanel.
+ * - Member 4: BookApptPanel, ViewApptsPanel (Update/Cancel/Delete), Exit Menu.
+ */
+public class PawPalGUI {
+
+    // Instantiate DAO objects to handle database communication
+    private static final UserDAO userDAO = new UserDAO();
+    private static final PetDAO petDAO = new PetDAO();
+    private static final VetDAO vetDAO = new VetDAO();
+    private static final AppointmentDAO apptDAO = new AppointmentDAO();
+
+    public static void main(String[] args) {
+        // SwingUtilities.invokeLater ensures thread-safe GUI creation
+        SwingUtilities.invokeLater(() -> new LoginFrame().setVisible(true));
+    }
+
+    // =========================================================================
+    // MEMBER 1: LOGIN SCREEN
+    // =========================================================================
+    static class LoginFrame extends JFrame {
+        public LoginFrame() {
+            setTitle("PawPal - System Login");
+            setSize(350, 280);
+            setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            setLocationRelativeTo(null);
+            setLayout(null); // Absolute positioning
+
+            // UI Components: Labels, TextFields, and Buttons
+            JLabel title = new JLabel("PawPal Login");
+            title.setFont(new Font("Arial", Font.BOLD, 18));
+            title.setBounds(110, 20, 150, 30);
+            add(title);
+
+            JLabel emailLbl = new JLabel("Email:");
+            emailLbl.setBounds(30, 70, 80, 25);
+            add(emailLbl);
+            JTextField emailField = new JTextField();
+            emailField.setBounds(100, 70, 200, 25);
+            add(emailField);
+
+            JLabel passLbl = new JLabel("Password:");
+            passLbl.setBounds(30, 110, 80, 25);
+            add(passLbl);
+            JPasswordField passField = new JPasswordField();
+            passField.setBounds(100, 110, 200, 25);
+            add(passField);
+
+            JButton loginBtn = new JButton("Login");
+            loginBtn.setBounds(100, 160, 100, 30);
+            add(loginBtn);
+
+            JButton registerBtn = new JButton("Register");
+            registerBtn.setBounds(100, 200, 100, 30);
+            add(registerBtn);
+
+            // Event Listener for Login Button
+            loginBtn.addActionListener(e -> {
+                String email = emailField.getText();
+                String pass = new String(passField.getPassword());
+                
+                // Authenticate user via UserDAO (SELECT query)
+                User user = userDAO.login(email, pass);
+
+                if (user != null) {
+                    JOptionPane.showMessageDialog(this, "Welcome, " + user.getFullName() + "!\nRole: " + user.getRole());
+                    this.dispose(); // Close login window
+                    new DashboardFrame(user).setVisible(true); // Open main dashboard
+                } else {
+                    JOptionPane.showMessageDialog(this, "Invalid email or password!", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            });
+
+            // Event Listener to open Registration Window
+            registerBtn.addActionListener(e -> new RegisterFrame().setVisible(true));
+        }
+    }
+
+    // =========================================================================
+    // MEMBER 1 & 2: REGISTER SCREEN
+    // =========================================================================
+    static class RegisterFrame extends JFrame {
+        public RegisterFrame() {
+            setTitle("PawPal - Register New User");
+            setSize(350, 380);
+            setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+            setLocationRelativeTo(null);
+            setLayout(null);
+
+            JLabel title = new JLabel("Create an Account");
+            title.setFont(new Font("Arial", Font.BOLD, 16));
+            title.setBounds(90, 10, 200, 30);
+            add(title);
+
+            // Common Registration Fields
+            JLabel nameLbl = new JLabel("Full Name:");
+            nameLbl.setBounds(30, 50, 80, 25);
+            add(nameLbl);
+            JTextField nameField = new JTextField();
+            nameField.setBounds(120, 50, 180, 25);
+            add(nameField);
+
+            JLabel emailLbl = new JLabel("Email:");
+            emailLbl.setBounds(30, 90, 80, 25);
+            add(emailLbl);
+            JTextField emailField = new JTextField();
+            emailField.setBounds(120, 90, 180, 25);
+            add(emailField);
+
+            JLabel passLbl = new JLabel("Password:");
+            passLbl.setBounds(30, 130, 80, 25);
+            add(passLbl);
+            JPasswordField passField = new JPasswordField();
+            passField.setBounds(120, 130, 180, 25);
+            add(passField);
+
+            JLabel cityLbl = new JLabel("City:");
+            cityLbl.setBounds(30, 170, 80, 25);
+            add(cityLbl);
+            JTextField cityField = new JTextField();
+            cityField.setBounds(120, 170, 180, 25);
+            add(cityField);
+
+            JLabel roleLbl = new JLabel("Register as:");
+            roleLbl.setBounds(30, 210, 80, 25);
+            add(roleLbl);
+            String[] roles = {"Pet Owner", "Veterinarian"};
+            JComboBox<String> roleBox = new JComboBox<>(roles);
+            roleBox.setBounds(120, 210, 180, 25);
+            add(roleBox);
+
+            // Member 1: Vet-Specific Fields (Hidden by default)
+            JLabel specLbl = new JLabel("Specialization:");
+            specLbl.setBounds(30, 250, 90, 25);
+            specLbl.setVisible(false);
+            add(specLbl);
+            JTextField specField = new JTextField();
+            specField.setBounds(120, 250, 180, 25);
+            specField.setVisible(false);
+            add(specField);
+
+            JLabel licLbl = new JLabel("License No:");
+            licLbl.setBounds(30, 290, 90, 25);
+            licLbl.setVisible(false);
+            add(licLbl);
+            JTextField licField = new JTextField();
+            licField.setBounds(120, 290, 180, 25);
+            licField.setVisible(false);
+            add(licField);
+
+            JButton registerBtn = new JButton("Register");
+            registerBtn.setBounds(120, 280, 100, 30);
+            add(registerBtn);
+
+            // Dynamic UI: Show/Hide Vet fields based on Role selection
+            roleBox.addActionListener(e -> {
+                boolean isVet = "Veterinarian".equals(roleBox.getSelectedItem());
+                specLbl.setVisible(isVet);
+                specField.setVisible(isVet);
+                licLbl.setVisible(isVet);
+                licField.setVisible(isVet);
+                
+                // Adjust window size dynamically
+                if (isVet) {
+                    setSize(350, 430); 
+                    registerBtn.setBounds(120, 340, 100, 30); 
+                } else {
+                    setSize(350, 380); 
+                    registerBtn.setBounds(120, 280, 100, 30); 
+                }
+            });
+
+            // Event Listener to Register User
+            registerBtn.addActionListener(e -> {
+                String name = nameField.getText();
+                String email = emailField.getText();
+                String pass = new String(passField.getPassword());
+                String city = cityField.getText();
+                String selectedRole = (String) roleBox.getSelectedItem();
+
+                try {
+                    User newUser;
+                    if ("Pet Owner".equals(selectedRole)) {
+                        // Member 2: Pet Owner object creation
+                        newUser = new PetOwner(0, name, email, pass, city);
+                    } else {
+                        // Member 1: Veterinarian object creation
+                        newUser = new Veterinarian(0, name, email, pass, city, 0, specField.getText(), licField.getText());
+                    }
+
+                    // Insert user into database via UserDAO
+                    if (userDAO.add(newUser)) {
+                        JOptionPane.showMessageDialog(this, "Registration Successful! You can now login.");
+                        this.dispose();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Registration failed. Email might be in use.");
+                    }
+                } catch (IllegalArgumentException ex) {
+                    // Catch validation exceptions thrown by the User class
+                    JOptionPane.showMessageDialog(this, ex.getMessage(), "Validation Error", JOptionPane.ERROR_MESSAGE);
+                }
+            });
+        }
+    }
+
+    // =========================================================================
+    // MAIN DASHBOARD (Role-based UI routing)
+    // =========================================================================
+    static class DashboardFrame extends JFrame {
+        public DashboardFrame(User user) {
+            setTitle("PawPal Dashboard - " + user.getDashboardTitle());
+            setSize(750, 600);
+            setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            setLocationRelativeTo(null);
+
+            // Member 4: Exit Menu (Replaces Console Option 9)
+            JMenuBar menuBar = new JMenuBar();
+            JMenu fileMenu = new JMenu("File");
+            JMenuItem logoutItem = new JMenuItem("Logout");
+            JMenuItem exitItem = new JMenuItem("Exit");
+            
+            logoutItem.addActionListener(e -> {
+                this.dispose();
+                new LoginFrame().setVisible(true); 
+            });
+            
+            exitItem.addActionListener(e -> System.exit(0));
+            
+            fileMenu.add(logoutItem);
+            fileMenu.add(exitItem);
+            menuBar.add(fileMenu);
+            setJMenuBar(menuBar);
+
+            // Tabbed Pane for different system modules
+            JTabbedPane tabs = new JTabbedPane();
+
+            // Polymorphism: Render UI components based on the user's role
+            if (user.getRole().equals("OWNER")) {
+                tabs.add("My Pets", new PetPanel(user));                // Member 2
+                tabs.add("Book Appointment", new BookApptPanel(user));  // Member 4
+            }
+            
+            if (!user.getRole().equals("OWNER")) {
+                tabs.add("View Veterinarians", new ViewVetsPanel());    // Member 3
+            }
+            
+            tabs.add("Manage Appointments", new ViewApptsPanel(user));  // Member 4
+
+            if (user.getRole().equals("ADMIN")) {
+                tabs.add("Manage Vets", new ManageVetsPanel());         // Member 3
+                tabs.add("Manage Users", new ManageUsersPanel());       // Member 1
+            }
+
+            add(tabs);
+        }
+    }
+
+    // =========================================================================
+    // MEMBER 2: PET MANAGEMENT PANEL
+    // =========================================================================
+    static class PetPanel extends JPanel {
+        public PetPanel(User user) {
+            setLayout(null);
+
+            // UI Components for Pet Registration
+            JLabel nameLbl = new JLabel("Pet Name:");
+            nameLbl.setBounds(20, 20, 80, 25);
+            add(nameLbl);
+            JTextField nameField = new JTextField();
+            nameField.setBounds(100, 20, 150, 25);
+            add(nameField);
+
+            JLabel speciesLbl = new JLabel("Species:");
+            speciesLbl.setBounds(20, 60, 80, 25);
+            add(speciesLbl);
+            JTextField speciesField = new JTextField();
+            speciesField.setBounds(100, 60, 150, 25);
+            add(speciesField);
+
+            JLabel breedLbl = new JLabel("Breed:");
+            breedLbl.setBounds(20, 100, 80, 25);
+            add(breedLbl);
+            JTextField breedField = new JTextField();
+            breedField.setBounds(100, 100, 150, 25);
+            add(breedField);
+
+            JLabel ageLbl = new JLabel("Age:");
+            ageLbl.setBounds(20, 140, 80, 25);
+            add(ageLbl);
+            JTextField ageField = new JTextField();
+            ageField.setBounds(100, 140, 150, 25);
+            add(ageField);
+
+            JButton addBtn = new JButton("Register Pet");
+            addBtn.setBounds(20, 180, 120, 30);
+            add(addBtn);
+
+            JButton viewBtn = new JButton("View My Pets");
+            viewBtn.setBounds(150, 180, 120, 30);
+            add(viewBtn);
+
+            JTextArea area = new JTextArea();
+            area.setEditable(false);
+            JScrollPane scroll = new JScrollPane(area);
+            scroll.setBounds(20, 230, 680, 250);
+            add(scroll);
+
+            // Create Operation: Insert new pet into database
+            addBtn.addActionListener(e -> {
+                try {
+                    String name = nameField.getText();
+                    String species = speciesField.getText();
+                    String breed = breedField.getText();
+                    int age = Integer.parseInt(ageField.getText());
+
+                    Pet p = new Pet(0, user.getUserId(), name, species, breed, age);
+                    if (petDAO.add(p)) {
+                        JOptionPane.showMessageDialog(this, "Pet Registered!");
+                        nameField.setText(""); speciesField.setText("");
+                        breedField.setText(""); ageField.setText("");
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, "Please enter valid data.");
+                }
+            });
+
+            // Read Operation: Retrieve pets belonging to the logged-in user
+            viewBtn.addActionListener(e -> {
+                area.setText("--- Your Pets ---\n");
+                List<Pet> pets = petDAO.findByOwner(user.getUserId());
+                for (Pet p : pets) {
+                    area.append("ID: " + p.getPetId() + " | Name: " + p.getPetName() + 
+                                " | " + p.getSpecies() + " | Age: " + p.getAge() + "\n");
+                }
+            });
+        }
+    }
+
+    // =========================================================================
+    // MEMBER 4: BOOK APPOINTMENT PANEL
+    // =========================================================================
+    static class BookApptPanel extends JPanel {
+        public BookApptPanel(User user) {
+            setLayout(null);
+
+            JButton viewVetsBtn = new JButton("See Vet IDs");
+            viewVetsBtn.setBounds(20, 20, 150, 25);
+            add(viewVetsBtn);
+            
+            JTextArea vetsArea = new JTextArea();
+            vetsArea.setEditable(false);
+            vetsArea.setBounds(20, 50, 250, 150);
+            add(vetsArea);
+
+            viewVetsBtn.addActionListener(e -> {
+                vetsArea.setText("");
+                List<Veterinarian> vets = vetDAO.findAll();
+                for (Veterinarian v : vets) {
+                    vetsArea.append("Vet ID: " + v.getVetId() + " - " + v.getFullName() + "\n");
+                }
+            });
+
+            // UI Components for Appointment Booking
+            JLabel petLbl = new JLabel("Your Pet ID:");
+            petLbl.setBounds(300, 20, 100, 25);
+            add(petLbl);
+            JTextField petField = new JTextField();
+            petField.setBounds(400, 20, 150, 25);
+            add(petField);
+
+            JLabel vetLbl = new JLabel("Vet ID:");
+            vetLbl.setBounds(300, 60, 100, 25);
+            add(vetLbl);
+            JTextField vetField = new JTextField();
+            vetField.setBounds(400, 60, 150, 25);
+            add(vetField);
+
+            JLabel dateLbl = new JLabel("Date (YYYY-MM-DD):");
+            dateLbl.setBounds(300, 100, 120, 25);
+            add(dateLbl);
+            JTextField dateField = new JTextField(LocalDate.now().plusDays(1).toString());
+            dateField.setBounds(420, 100, 130, 25);
+            add(dateField);
+
+            JLabel timeLbl = new JLabel("Time (HH:MM):");
+            timeLbl.setBounds(300, 140, 100, 25);
+            add(timeLbl);
+            JTextField timeField = new JTextField("10:30");
+            timeField.setBounds(400, 140, 150, 25);
+            add(timeField);
+
+            JLabel reasonLbl = new JLabel("Reason:");
+            reasonLbl.setBounds(300, 180, 100, 25);
+            add(reasonLbl);
+            JTextField reasonField = new JTextField();
+            reasonField.setBounds(400, 180, 200, 25);
+            add(reasonField);
+
+            JButton bookBtn = new JButton("Book Appointment");
+            bookBtn.setBounds(300, 230, 180, 30);
+            add(bookBtn);
+
+            // Create Operation: Insert new appointment into database
+            bookBtn.addActionListener(e -> {
+                try {
+                    Appointment a = new Appointment();
+                    a.setPetId(Integer.parseInt(petField.getText()));
+                    a.setVetId(Integer.parseInt(vetField.getText()));
+                    a.setDate(LocalDate.parse(dateField.getText()));
+                    a.setTime(LocalTime.parse(timeField.getText()));
+                    a.setReason(reasonField.getText());
+                    a.setStatus("PENDING");
+                    
+                    if (apptDAO.add(a)) {
+                        JOptionPane.showMessageDialog(this, "Appointment Booked!");
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Error booking. Check Pet ID and Vet ID.");
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, "Invalid input! Check Date and Time format.");
+                }
+            });
+        }
+    }
+
+    // =========================================================================
+    // MEMBER 3: VIEW VETS PANEL
+    // =========================================================================
+    static class ViewVetsPanel extends JPanel {
+        public ViewVetsPanel() {
+            setLayout(new BorderLayout());
+            JTextArea area = new JTextArea();
+            area.setEditable(false);
+            add(new JScrollPane(area), BorderLayout.CENTER);
+
+            JButton refreshBtn = new JButton("Load Veterinarians");
+            add(refreshBtn, BorderLayout.SOUTH);
+
+            // Read Operation: Fetch all vets from database
+            refreshBtn.addActionListener(e -> {
+                area.setText("--- Available Veterinarians ---\n");
+                List<Veterinarian> vets = vetDAO.findAll();
+                for (Veterinarian v : vets) {
+                    area.append("ID: " + v.getVetId() + " | Dr. " + v.getFullName() + 
+                                " | Specialization: " + v.getSpecialization() + 
+                                " | City: " + v.getCity() + "\n");
+                }
+            });
+            refreshBtn.doClick();
+        }
+    }
+
+    // =========================================================================
+    // MEMBER 4: MANAGE APPOINTMENTS (View, Update, Cancel, Delete)
+    // =========================================================================
+    static class ViewApptsPanel extends JPanel {
+        private JTable table;
+        private DefaultTableModel model;
+        private User currentUser;
+
+        private JTextField newDateField, newTimeField, newReasonField;
+
+        public ViewApptsPanel(User user) {
+            this.currentUser = user;
+            setLayout(new BorderLayout());
+
+            // JTable setup to display data structurally
+            String[] columns = {"ID", "Date", "Time", "Pet Name", "Vet Name", "Status", "Reason"};
+            model = new DefaultTableModel(columns, 0);
+            table = new JTable(model);
+            add(new JScrollPane(table), BorderLayout.CENTER);
+
+            JPanel controlPanel = new JPanel();
+            controlPanel.setLayout(new FlowLayout());
+
+            JButton refreshBtn = new JButton("Refresh List");
+            controlPanel.add(refreshBtn);
+
+            if (user.getRole().equals("OWNER")) {
+                // Owner UI: Can Update Date/Time/Reason or Cancel
+                controlPanel.add(new JLabel("New Date:"));
+                newDateField = new JTextField(8);
+                controlPanel.add(newDateField);
+
+                controlPanel.add(new JLabel("New Time:"));
+                newTimeField = new JTextField(5);
+                controlPanel.add(newTimeField);
+
+                controlPanel.add(new JLabel("New Reason:"));
+                newReasonField = new JTextField(10);
+                controlPanel.add(newReasonField);
+
+                JButton updateBtn = new JButton("Update Details");
+                controlPanel.add(updateBtn);
+                updateBtn.addActionListener(e -> ownerUpdateDetails());
+
+                JButton cancelBtn = new JButton("Cancel Appt");
+                controlPanel.add(cancelBtn);
+                cancelBtn.addActionListener(e -> updateStatus("CANCELLED"));
+
+            } else if (user.getRole().equals("VET") || user.getRole().equals("ADMIN")) {
+                // Vet/Admin UI: Can confirm, complete, cancel, or delete
+                JButton confirmBtn = new JButton("Confirm");
+                JButton completeBtn = new JButton("Complete");
+                JButton cancelStatusBtn = new JButton("Cancel Appt");
+                
+                controlPanel.add(confirmBtn);
+                controlPanel.add(completeBtn);
+                controlPanel.add(cancelStatusBtn);
+
+                confirmBtn.addActionListener(e -> updateStatus("CONFIRMED"));
+                completeBtn.addActionListener(e -> updateStatus("COMPLETED"));
+                cancelStatusBtn.addActionListener(e -> updateStatus("CANCELLED"));
+
+                if (user.getRole().equals("ADMIN")) {
+                    JButton deleteBtn = new JButton("Delete Record");
+                    controlPanel.add(deleteBtn);
+                    deleteBtn.addActionListener(e -> adminDeleteAppt());
+                }
+            }
+
+            add(controlPanel, BorderLayout.SOUTH);
+
+            refreshBtn.addActionListener(e -> loadData());
+            refreshBtn.doClick();
+        }
+
+        // Fetch data using AppointmentDAO
+        private void loadData() {
+            model.setRowCount(0);
+            List<Appointment> list = apptDAO.findForUser(currentUser);
+            for (Appointment a : list) {
+                model.addRow(new Object[]{
+                    a.getAppointmentId(), a.getDate(), a.getTime(), 
+                    a.getPetName(), a.getVetName(), a.getStatus(), a.getReason()
+                });
+            }
+        }
+
+        // Update Operation: Modify existing appointment details
+        private void ownerUpdateDetails() {
+            int row = table.getSelectedRow();
+            if (row == -1) {
+                JOptionPane.showMessageDialog(this, "Please select an appointment first.");
+                return;
+            }
+            try {
+                int apptId = (int) model.getValueAt(row, 0);
+                LocalDate newDate = LocalDate.parse(newDateField.getText());
+                LocalTime newTime = LocalTime.parse(newTimeField.getText());
+                String newReason = newReasonField.getText();
+                
+                if (apptDAO.updateDetails(apptId, newDate, newTime, newReason)) {
+                    JOptionPane.showMessageDialog(this, "Appointment Rescheduled Successfully!");
+                    loadData();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Error updating. Check date format.");
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Invalid input! Use YYYY-MM-DD and HH:MM.");
+            }
+        }
+
+        // Update Operation: Change appointment status
+        private void updateStatus(String newStatus) {
+            int row = table.getSelectedRow();
+            if (row == -1) {
+                JOptionPane.showMessageDialog(this, "Please select an appointment first.");
+                return;
+            }
+            int apptId = (int) model.getValueAt(row, 0);
+            if (apptDAO.updateStatus(apptId, newStatus)) {
+                JOptionPane.showMessageDialog(this, "Status updated to " + newStatus);
+                loadData();
+            }
+        }
+
+        // Delete Operation: Admin only
+        private void adminDeleteAppt() {
+            int row = table.getSelectedRow();
+            if (row == -1) {
+                JOptionPane.showMessageDialog(this, "Please select an appointment first.");
+                return;
+            }
+            int apptId = (int) model.getValueAt(row, 0);
+            if (apptDAO.delete(apptId)) {
+                JOptionPane.showMessageDialog(this, "Appointment permanently deleted.");
+                loadData();
+            }
+        }
+    }
+
+    // =========================================================================
+    // MEMBER 3: ADMIN - MANAGE VETS PANEL
+    // =========================================================================
+    static class ManageVetsPanel extends JPanel {
+        public ManageVetsPanel() {
+            setLayout(new BorderLayout());
+            JTextArea area = new JTextArea();
+            area.setEditable(false);
+            add(new JScrollPane(area), BorderLayout.CENTER);
+
+            JPanel controls = new JPanel();
+            JTextField idField = new JTextField(5);
+            JButton deleteBtn = new JButton("Delete Vet by ID");
+            JButton refreshBtn = new JButton("Refresh");
+
+            controls.add(new JLabel("Vet ID:"));
+            controls.add(idField);
+            controls.add(deleteBtn);
+            controls.add(refreshBtn);
+            add(controls, BorderLayout.SOUTH);
+
+            refreshBtn.addActionListener(e -> {
+                area.setText("--- Vets in System ---\n");
+                for (Veterinarian v : vetDAO.findAll()) {
+                    area.append("ID: " + v.getVetId() + " | " + v.getFullName() + " | " + v.getSpecialization() + "\n");
+                }
+            });
+
+            // Delete Operation
+            deleteBtn.addActionListener(e -> {
+                try {
+                    int id = Integer.parseInt(idField.getText());
+                    if (vetDAO.delete(id)) {
+                        JOptionPane.showMessageDialog(this, "Vet deleted successfully.");
+                        refreshBtn.doClick();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Error: Vet might have appointments.");
+                    }
+                } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Enter a valid ID."); }
+            });
+            refreshBtn.doClick();
+        }
+    }
+
+    // =========================================================================
+    // MEMBER 1: ADMIN - MANAGE USERS PANEL
+    // =========================================================================
+    static class ManageUsersPanel extends JPanel {
+        public ManageUsersPanel() {
+            setLayout(new BorderLayout());
+            JTextArea area = new JTextArea();
+            area.setEditable(false);
+            add(new JScrollPane(area), BorderLayout.CENTER);
+
+            JPanel controls = new JPanel();
+            JTextField idField = new JTextField(5);
+            JButton deleteBtn = new JButton("Delete User by ID");
+            JButton refreshBtn = new JButton("Refresh");
+
+            controls.add(new JLabel("User ID:"));
+            controls.add(idField);
+            controls.add(deleteBtn);
+            controls.add(refreshBtn);
+            add(controls, BorderLayout.SOUTH);
+
+            refreshBtn.addActionListener(e -> {
+                area.setText("--- Users in System ---\n");
+                for (User u : userDAO.findAll()) {
+                    area.append("ID: " + u.getUserId() + " | " + u.getFullName() + " | Role: " + u.getRole() + "\n");
+                }
+            });
+
+            // Delete Operation
+            deleteBtn.addActionListener(e -> {
+                try {
+                    int id = Integer.parseInt(idField.getText());
+                    if (userDAO.delete(id)) {
+                        JOptionPane.showMessageDialog(this, "User deleted.");
+                        refreshBtn.doClick();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Error deleting user.");
+                    }
+                } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Enter a valid ID."); }
+            });
+            refreshBtn.doClick();
+        }
+    }
+}
